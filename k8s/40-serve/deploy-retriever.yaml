@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atharva-retriever
+  namespace: atharva-ml
+  labels: { app: retriever }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: retriever }
+  template:
+    metadata:
+      labels: { app: retriever }
+    spec:
+      terminationGracePeriodSeconds: 20
+      containers:
+      - name: api
+        image: public.ecr.aws/docker/library/python:3.11-slim
+        imagePullPolicy: IfNotPresent
+        workingDir: /mnt/project/atharva-dental-assistant
+        env:
+        - { name: HOME, value: /mnt/project }
+        - { name: VIRTUAL_ENV, value: /mnt/project/.venv }
+        - { name: PATH, value: /mnt/project/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin }
+        - { name: PYTHONPATH, value: /mnt/project/atharva-dental-assistant }
+        - { name: HF_HOME, value: /mnt/project/.hf_cache }
+        - { name: TOKENIZERS_PARALLELISM, value: "false" }
+        - { name: INDEX_PATH, value: /mnt/project/atharva-dental-assistant/artifacts/rag/index.faiss }
+        - { name: META_PATH,  value: /mnt/project/atharva-dental-assistant/artifacts/rag/meta.json }
+        - { name: MODEL_NAME, value: sentence-transformers/all-MiniLM-L6-v2 }
+        - { name: BACKEND, value: sparse }
+        ports:
+        - { name: http, containerPort: 8001 }
+        command: ["bash","-lc"]
+        args:
+          - |
+            set -euo pipefail
+            python -m venv "$VIRTUAL_ENV"
+            . "$VIRTUAL_ENV/bin/activate"
+            # Keep pip modern but avoid surprises; optional to pin <25
+            pip install --upgrade pip
+            # --- CRITICAL ORDER & PINNING (NumPy 1.x-compatible stack) ---
+            pip install --no-cache-dir "numpy==1.26.4"
+            pip install --no-cache-dir "scipy==1.10.1" "scikit-learn==1.3.2" "faiss-cpu==1.7.4"
+            pip install --no-cache-dir fastapi==0.112.2 uvicorn==0.30.6 sentence-transformers==2.7.0
+            # -------------------------------------------------------------
+            uvicorn rag.retriever:app --host 0.0.0.0 --port 8001
+        readinessProbe:
+          httpGet: { path: /ready, port: 8001 }
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          httpGet: { path: /health, port: 8001 }
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        resources:
+          requests: { cpu: "500m", memory: "1Gi" }
+          limits:   { cpu: "2",    memory: "4Gi" }
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+        volumeMounts:
+        - { name: host, mountPath: /mnt/project }
+      volumes:
+      - name: host
+        hostPath: { path: /mnt/project, type: Directory }

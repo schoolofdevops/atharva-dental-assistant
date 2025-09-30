@@ -1,0 +1,101 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: atharva-build-index
+  namespace: atharva-ml
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: index
+        image: public.ecr.aws/docker/library/python:3.11-slim
+        command: ["bash","-lc"]
+        args:
+          - |
+            set -euo pipefail
+            export HOME=/mnt/project
+            VENV=/mnt/project/.venv-build
+            ROOT=/mnt/project/atharva-dental-assistant/datasets/clinic
+            OUT=/mnt/project/atharva-dental-assistant/artifacts/rag
+            mkdir -p "$OUT"
+            python -m venv "$VENV"
+            . "$VENV/bin/activate"
+            pip install -U pip
+            pip install --no-cache-dir "numpy==1.26.4" "scipy==1.10.1" "scikit-learn==1.3.2" "joblib==1.3.2"
+
+            python - << 'PY'
+            from pathlib import Path
+            import json, sys, re
+            import numpy as np
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from scipy import sparse
+            import joblib
+
+            ROOT   = Path("/mnt/project/atharva-dental-assistant/datasets/clinic")
+            OUTDIR = Path("/mnt/project/atharva-dental-assistant/artifacts/rag")
+            OUTDIR.mkdir(parents=True, exist_ok=True)
+
+            # load .md, .json, .jsonl (same logic as before)
+            PREFERRED = {"title","question","answer","content","description","body","text","summary"}
+            def jtext(o):
+                parts=[]
+                def walk(x):
+                    if isinstance(x,str):
+                        s=x.strip()
+                        if s: parts.append(s)
+                    elif isinstance(x,dict):
+                        for k in list(PREFERRED & set(x.keys())) + [k for k in x if k not in PREFERRED]:
+                            walk(x[k])
+                    elif isinstance(x,(list,tuple)):
+                        for it in x: walk(it)
+                walk(o)
+                return re.sub(r"\s+\n","\n", re.sub(r"[ \t]+"," ","\n".join(parts))).strip()
+
+            texts=[]; meta=[]
+            for p in sorted(ROOT.rglob("*.md")):
+                try:
+                    t=p.read_text(encoding="utf-8", errors="ignore").strip()
+                    if t: texts.append(t); meta.append({"path": str(p.relative_to(ROOT)), "type":"md"})
+                except Exception: pass
+            for p in sorted(ROOT.rglob("*.json")):
+                try:
+                    obj=json.loads(p.read_text(encoding="utf-8", errors="ignore"))
+                    if isinstance(obj,list):
+                        for i,it in enumerate(obj):
+                            t=jtext(it)
+                            if t: texts.append(t); meta.append({"path": f"{p.relative_to(ROOT)}#{i}","type":"json"})
+                    else:
+                        t=jtext(obj)
+                        if t: texts.append(t); meta.append({"path": str(p.relative_to(ROOT)),"type":"json"})
+                except Exception: pass
+            for p in sorted(ROOT.rglob("*.jsonl")):
+                try:
+                    for i,line in enumerate(p.read_text(encoding="utf-8", errors="ignore").splitlines()):
+                        line=line.strip()
+                        if not line: continue
+                        try: obj=json.loads(line)
+                        except Exception: continue
+                        t=jtext(obj)
+                        if t: texts.append(t); meta.append({"path": f"{p.relative_to(ROOT)}:{i+1}","type":"jsonl"})
+                except Exception: pass
+
+            if not texts:
+                print(f"No ingestible files in {ROOT}", file=sys.stderr); sys.exit(2)
+
+            vec = TfidfVectorizer(max_features=50000, ngram_range=(1,2), lowercase=True)
+            X = vec.fit_transform(texts).astype(np.float32)  # rows are L2-normalized by default
+
+            joblib.dump(vec, OUTDIR/"tfidf_vectorizer.joblib")
+            sparse.save_npz(OUTDIR/"tfidf_matrix.npz", X)
+            (OUTDIR/"meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+            print("TF-IDF built:", X.shape, "saved to", OUTDIR)
+            PY
+
+            ls -lah "$OUT" && wc -c "$OUT"/tfidf_* "$OUT"/meta.json
+        volumeMounts:
+        - name: host
+          mountPath: /mnt/project
+      volumes:
+      - name: host
+        hostPath: { path: /mnt/project, type: Directory }
