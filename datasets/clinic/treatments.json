@@ -1,0 +1,56 @@
+[
+  {
+    "code": "TX-SCALE-01",
+    "name": "Scaling & Polishing",
+    "category": "Preventive",
+    "indications": ["Tartar buildup", "Gingival bleeding"],
+    "contraindications": [],
+    "steps": ["Ultrasonic scaling", "Polishing", "Fluoride advice"],
+    "duration_minutes": 40,
+    "visits": 1,
+    "price_band_inr": [1200, 1800],
+    "aftercare": ["Warm saline rinses 24h", "Soft bristle brushing"],
+    "risks": ["Transient sensitivity"]
+  },
+  {
+    "code": "TX-RCT-01",
+    "name": "Root Canal Therapy",
+    "category": "Endodontics",
+    "indications": ["Deep caries", "Pulpitis", "Apical periodontitis"],
+    "contraindications": ["Poor crown-root ratio (relative)"],
+    "steps": ["Local anesthesia", "Canal cleaning", "Obturation", "Temporary filling"],
+    "duration_minutes": 90,
+    "visits": 2,
+    "price_band_inr": [6000, 9500],
+    "aftercare": ["Analgesics as advised", "Avoid hard chewing until crown"],
+    "risks": ["Post-op soreness", "Instrument separation (rare)"]
+  },
+  {
+    "code": "TX-FILL-01",
+    "name": "Composite Filling",
+    "category": "Restorative",
+    "indications": ["Dental caries", "Chipped tooth (minor)"],
+    "contraindications": [],
+    "steps": ["Isolation", "Decay removal", "Bonding", "Composite placement and curing", "Polishing"],
+    "duration_minutes": 20,
+    "visits": 1,
+    "price_band_inr": [1200, 2000],
+    "aftercare": ["Avoid very hard foods for 24h", "Monitor sensitivity to cold/sweets"],
+    "risks": ["Transient sensitivity", "Marginal staining over time"]
+},
+{
+    "code": "TX-EXT-01",
+    "name": "Tooth Extraction",
+    "category": "Oral Surgery",
+    "indications": ["Non-restorable tooth", "Severe mobility", "Impacted tooth (varies)"],
+    "contraindications": ["Uncontrolled bleeding disorders (relative)", "Uncontrolled diabetes (relative)"],
+    "steps": ["Local anesthesia", "Tooth luxation", "Removal", "Hemostasis"],
+    "duration_minutes": 30,
+    "visits": 1,
+    "price_band_inr": [1500, 3500],
+    "aftercare": ["Bite on gauze 30–45 min", "No spitting/rinsing 24h", "No straws/smoking 48–72h", "Soft diet first day"],
+    "risks": ["Dry socket", "Bleeding", "Swelling"]
+}
+
+]
+
