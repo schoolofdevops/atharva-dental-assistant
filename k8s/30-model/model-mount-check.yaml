@@ -17,5 +17,5 @@ spec:
   volumes:
   - name: model
     image:
-      reference: xxxxxx/smollm2-135m-merged:v1
+      reference: xxxxx/smollm2-135m-merged:v1
       pullPolicy: IfNotPresent
